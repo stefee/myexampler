@@ -3,15 +3,21 @@ import EventEmitter from "events";
 import * as React from "react";
 import * as Renderer from "react-test-renderer";
 
-export default function runExample () {
-  function MyUserInterface(props) {
+export default function runExample() {
+  function MyUserInterface(properties) {
+    const user = properties.user;
+
     const [userName, setUserName] = React.useState(null);
 
     function listenForUserSpeaking() {
-      props.user.addListener("speakName", setUserName);
+      const listener = user.addListener("speaking", setUserName);
+
+      return function stopListening() {
+        user.removeListener(listener);
+      };
     }
 
-    React.useEffect(listenForUserSpeaking);
+    React.useEffect(listenForUserSpeaking, [user]);
 
     if (userName === null) {
       return "Hello, what is your name?";
@@ -25,30 +31,18 @@ export default function runExample () {
   let myRenderer;
 
   function createRenderer() {
-    const props = {
+    const properties = {
       user: myUser,
     };
-    myRenderer = Renderer.create(React.createElement(MyUserInterface, props));
-  }
-
-  function updateRenderer() {
-    const props = {
-      user: myUser,
-    };
-    myRenderer.update(React.createElement(MyUserInterface, props));
-  }
-
-  function assertRenderedOutputToEqual (expected) {
-    const renderedOutput = myRenderer.toTree().rendered;
-    console.log(renderedOutput);
-    assert.strictEqual(renderedOutput, expected);
+    const element = React.createElement(MyUserInterface, properties);
+    myRenderer = Renderer.create(element);
   }
 
   Renderer.act(createRenderer);
 
-  assertRenderedOutputToEqual("Hello, what is your name?");
+  assert.strictEqual(myRenderer.toTree().rendered, "Hello, what is your name?");
 
-  myUser.emit("speakName", "Michael Cera");
+  myUser.emit("speaking", "Michael Cera");
 
-  assertRenderedOutputToEqual("Nice to meet you, Michael Cera!");
+  assert.strictEqual(myRenderer.toTree().rendered, "Nice to meet you, Michael Cera!");
 }
